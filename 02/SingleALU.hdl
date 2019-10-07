@@ -1,0 +1,9 @@
+CHIP SingleALU {
+  IN a[16], za, na;
+  OUT out[16];
+
+  PARTS:
+  Mux16(a=a, b[0..15]=false, sel=za, out=aafterz);
+  Not16(in=aafterz, out=aafterneg);
+  Mux16(a=aafterz, b=aafterneg, sel=na, out=out);
+}

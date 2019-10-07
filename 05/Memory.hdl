@@ -1,0 +1,52 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/05/Memory.hdl
+
+/**
+ * The complete address space of the Hack computer's memory,
+ * including RAM and memory-mapped I/O. 
+ * The chip facilitates read and write operations, as follows:
+ *     Read:  out(t) = Memory[address(t)](t)
+ *     Write: if load(t-1) then Memory[address(t-1)](t) = in(t-1)
+ * In words: the chip always outputs the value stored at the memory 
+ * location specified by address. If load==1, the in value is loaded 
+ * into the memory location specified by address. This value becomes 
+ * available through the out output from the next time step onward.
+ * Address space rules:
+ * Only the upper 16K+8K+1 words of the Memory chip are used. 
+ * Access to address>0x6000 is invalid. Access to any address in 
+ * the range 0x4000-0x5FFF results in accessing the screen memory 
+ * map. Access to address 0x6000 results in accessing the keyboard 
+ * memory map. The behavior in these addresses is described in the 
+ * Screen and Keyboard chip specifications given in the book.
+ */
+
+CHIP Memory {
+    IN in[16], load, address[15];
+    OUT out[16];
+
+    PARTS:
+    And(a=address[14], b=true, out=shouldDoDevice);
+    Not(in=shouldDoDevice, out=shouldDoRAM);
+
+    And(a=shouldDoRAM, b=load, out=shouldLoadRAM);
+    RAM16K(load=shouldLoadRAM, in=in, address=address[0..13], out=RAMOut);
+
+    And(a=shouldDoDevice, b=address[13], out=shouldDoKeyboard);
+    Keyboard(out=keyboardOut);
+
+    Not(in=shouldDoKeyboard, out=shouldNotDoKeyboard);
+    And(a=shouldNotDoKeyboard, b=shouldDoDevice, out=shouldDoScreen);
+    And(a=shouldDoScreen, b=load, out=shouldLoadScreen);
+    Screen(load=shouldLoadScreen, in=in, address=address[0..12], out=screenOut);
+
+    And16(a[0]=shouldDoScreen, a[1]=shouldDoScreen, a[2]=shouldDoScreen, a[3]=shouldDoScreen, a[4]=shouldDoScreen, a[5]=shouldDoScreen, a[6]=shouldDoScreen, a[7]=shouldDoScreen, a[8]=shouldDoScreen, a[9]=shouldDoScreen, a[10]=shouldDoScreen, a[11]=shouldDoScreen, a[12]=shouldDoScreen, a[13]=shouldDoScreen, a[14]=shouldDoScreen, a[15]=shouldDoScreen, b=screenOut, out=screenFinal);
+
+    And16(a[0]=shouldDoKeyboard, a[1]=shouldDoKeyboard, a[2]=shouldDoKeyboard, a[3]=shouldDoKeyboard, a[4]=shouldDoKeyboard, a[5]=shouldDoKeyboard, a[6]=shouldDoKeyboard, a[7]=shouldDoKeyboard, a[8]=shouldDoKeyboard, a[9]=shouldDoKeyboard, a[10]=shouldDoKeyboard, a[11]=shouldDoKeyboard, a[12]=shouldDoKeyboard, a[13]=shouldDoKeyboard, a[14]=shouldDoKeyboard, a[15]=shouldDoKeyboard, b=keyboardOut, out=keyboardFinal);
+
+    And16(a[0]=shouldDoRAM, a[1]=shouldDoRAM, a[2]=shouldDoRAM, a[3]=shouldDoRAM, a[4]=shouldDoRAM, a[5]=shouldDoRAM, a[6]=shouldDoRAM, a[7]=shouldDoRAM, a[8]=shouldDoRAM, a[9]=shouldDoRAM, a[10]=shouldDoRAM, a[11]=shouldDoRAM, a[12]=shouldDoRAM, a[13]=shouldDoRAM, a[14]=shouldDoRAM, a[15]=shouldDoRAM, b=RAMOut, out=ramFinal);
+    
+    Or16(a=keyboardFinal, b=ramFinal, out=deviceFinal);
+    Or16(a=deviceFinal, b=screenFinal, out=out);
+}

@@ -1,0 +1,14 @@
+{
+  "name": "VM",
+  "version": "1.0.0",
+  "main": "VM.js",
+  "scripts": {
+    "start": "node VM.js"
+  },
+  "author": "Eddie-CooRo",
+  "license": "MIT",
+  "dependencies": {
+    "meow": "^5.0.0",
+    "uuidv4": "^5.0.1"
+  }
+}

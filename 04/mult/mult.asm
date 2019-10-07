@@ -1,0 +1,29 @@
+(START)
+@multi
+M=0
+@i
+M=0
+(OUTER)
+	@i
+	D=M
+	@R0
+	D=D-M
+	@ENDOUTER
+	D;JGE
+	@R1
+	D=M
+	@multi
+	M=M+D
+	@i
+	M=M+1
+	@OUTER
+	0;JMP
+(ENDOUTER)
+@multi
+D=M
+@R2
+M=D
+(END)
+	@END
+	0;JMP
+

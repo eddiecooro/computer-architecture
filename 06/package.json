@@ -1,0 +1,13 @@
+{
+  "name": "Assembler",
+  "version": "1.0.0",
+  "main": "Assembler.js",
+  "scripts": {
+    "start": "node Assembler.js"
+  },
+  "author": "Eddie-CooRo",
+  "license": "MIT",
+  "dependencies": {
+    "meow": "^5.0.0"
+  }
+}
