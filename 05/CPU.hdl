@@ -51,15 +51,17 @@ CHIP CPU {
     Mux16(sel=instruction[12], a=aVal, b=inM, out=ALUy);
 
     ALU(x=ALUx, y=ALUy, zx=instruction[11], nx=instruction[10], zy=instruction[9], ny=instruction[8], f=instruction[7], no=instruction[6], out=aluOut, out=outM, zr=aluResIsZero, ng=aluResIsNeg);
-    Not(in=aluResIsNeg, out=aluResIsPos);
+    Not(in=aluResIsNeg, out=aluResIsNotNeg);
+    Not(in=aluResIsZero, out=aluResIsNotZero);
+    And(a=aluResIsNotZero, b=aluResIsNotNeg, out=aluResIsPos);
 
     And(a=isC, b=instruction[5], out=shouldLoadALUIntoA);
     And(a=isC, b=instruction[4], out=shouldLoadALUIntoD);
     And(a=isC, b=instruction[3], out=shouldLoadALUIntoM, out=writeM);
 
-    And(a=isC, b=instruction[2], out=shouldJGT);
+    And(a=isC, b=instruction[0], out=shouldJGT);
     And(a=isC, b=instruction[1], out=shouldJEQ);
-    And(a=isC, b=instruction[0], out=shouldJLT);
+    And(a=isC, b=instruction[2], out=shouldJLT);
     And(a=shouldJGT, b=aluResIsPos, out=JGT);
     And(a=shouldJEQ, b=aluResIsZero, out=JEQ);
     And(a=shouldJLT, b=aluResIsNeg, out=JLT);
