@@ -17,7 +17,6 @@ const cli = meow(`
 const pathArg = cli.input[0];
 
 const isDir = fs.lstatSync(pathArg).isDirectory();
-let codeWriter;
 
 function getLastPartInPath(path) {
   let index = path.length;

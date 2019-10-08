@@ -29,10 +29,20 @@ class Parser {
         'Advance function should not get called after the commands has finished'
       );
     }
-    while (!nextCommand || this._isComment(nextCommand)) {
-      const nextNewLineIndex = this.file.indexOf('\r\n', this.index);
+    while (
+      (!nextCommand || this._isComment(nextCommand)) &&
+      this.hasMoreCommands()
+    ) {
+      let nextNewLineIndex = this.file.indexOf('\r\n', this.index);
+      let newLineCharLength = 2;
+      if (nextNewLineIndex === -1) {
+        nextNewLineIndex = this.file.indexOf('\n', this.index);
+        nextNewLineIndex =
+          nextNewLineIndex !== -1 ? nextNewLineIndex : undefined;
+        newLineCharLength = 1;
+      }
       nextCommand = this.file.slice(this.index, nextNewLineIndex);
-      this.index = nextNewLineIndex + 2;
+      this.index = nextNewLineIndex + newLineCharLength;
     }
 
     this.currentCommand = this._decomment(nextCommand.trim());
