@@ -1,0 +1,10 @@
+{
+  "name": "JackCompiler",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Eddie-CooRo",
+  "license": "MIT",
+  "dependencies": {
+    "meow": "^5.0.0"
+  }
+}
