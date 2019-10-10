@@ -135,7 +135,6 @@ class JackTokenizer {
         }
       }
     }
-    console.log('New token:', this.currentToken, this.currentTokenDescriptor);
   }
 
   token() {

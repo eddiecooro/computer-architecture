@@ -1,5 +1,6 @@
 const JackTokenizer = require('./JackTokenizer');
 const XMLWritter = require('./XMLWritter');
+const VMWriter = require('./VMWriter');
 
 const subroutineStarters = [
   JackTokenizer.KEYWORDS.FUNCTION,
@@ -27,9 +28,10 @@ const keywordConstants = [
 ];
 
 class CompilationEngine {
-  constructor(sourceFilePath, destWritter) {
+  constructor(sourceFilePath, destPath) {
     this.tokenizer = new JackTokenizer(sourceFilePath);
-    this.xmlWritter_old = new XMLWritter(destWritter);
+    this.xmlWriter_old = new XMLWritter(destPath + '.xml');
+    this.vmWriter = new VMWriter(destPath);
   }
 
   _includes(expected, found) {
@@ -72,29 +74,25 @@ class CompilationEngine {
   }
 
   _writeCurrentToken() {
-    console.log('Writing');
     const tokenType = this.tokenizer.token();
     switch (tokenType) {
       case JackTokenizer.TOKENTYPES.IDENTIFIER:
-        this.xmlWritter_old.writeTag('identifier', this.tokenizer.identifier());
+        this.xmlWriter_old.writeTag('identifier', this.tokenizer.identifier());
         break;
       case JackTokenizer.TOKENTYPES.KEYWORD:
-        this.xmlWritter_old.writeTag(
+        this.xmlWriter_old.writeTag(
           'keyword',
           this.tokenizer.keyword().toLowerCase()
         );
         break;
       case JackTokenizer.TOKENTYPES.SYMBOL:
-        this.xmlWritter_old.writeTag('symbol', this.tokenizer.symbol());
+        this.xmlWriter_old.writeTag('symbol', this.tokenizer.symbol());
         break;
       case JackTokenizer.TOKENTYPES.INT_CONST:
-        this.xmlWritter_old.writeTag(
-          'integerConstant',
-          this.tokenizer.intVal()
-        );
+        this.xmlWriter_old.writeTag('integerConstant', this.tokenizer.intVal());
         break;
       case JackTokenizer.TOKENTYPES.STRING_CONST:
-        this.xmlWritter_old.writeTag(
+        this.xmlWriter_old.writeTag(
           'stringConstant',
           this.tokenizer.stringVal()
         );
@@ -187,7 +185,7 @@ class CompilationEngine {
   }
 
   compileClass() {
-    this.xmlWritter_old.openTag('class');
+    this.xmlWriter_old.openTag('class');
 
     this._compileKeyword(JackTokenizer.KEYWORDS.CLASS);
 
@@ -197,7 +195,7 @@ class CompilationEngine {
     this._compileClassBody();
     this._compileSymbol('}');
 
-    this.xmlWritter_old.closeTag('class');
+    this.xmlWriter_old.closeTag('class');
   }
 
   compileType() {
@@ -226,10 +224,10 @@ class CompilationEngine {
   }
 
   compileVarDec() {
-    this.xmlWritter_old.openTag('varDec');
+    this.xmlWriter_old.openTag('varDec');
     this._compileKeyword(JackTokenizer.KEYWORDS.VAR);
     this.compileRestVarDec();
-    this.xmlWritter_old.closeTag('varDec');
+    this.xmlWriter_old.closeTag('varDec');
   }
 
   compileRestVarDec() {
@@ -241,13 +239,13 @@ class CompilationEngine {
   }
 
   compileClassVarDec() {
-    this.xmlWritter_old.openTag('classVarDec');
+    this.xmlWriter_old.openTag('classVarDec');
 
     this._compileKeyword(classVarDecStarters);
 
     this.compileRestVarDec();
 
-    this.xmlWritter_old.closeTag('classVarDec');
+    this.xmlWriter_old.closeTag('classVarDec');
   }
 
   _compileTermIdentifier() {
@@ -268,7 +266,7 @@ class CompilationEngine {
   }
 
   compileTerm() {
-    this.xmlWritter_old.openTag('term');
+    this.xmlWriter_old.openTag('term');
     if (this.tokenizer.token() === JackTokenizer.TOKENTYPES.INT_CONST) {
       this._compileIntegerConstant();
     } else if (
@@ -287,7 +285,7 @@ class CompilationEngine {
     } else if (this.tokenizer.token() === JackTokenizer.TOKENTYPES.IDENTIFIER) {
       this._compileTermIdentifier();
     }
-    this.xmlWritter_old.closeTag('term');
+    this.xmlWriter_old.closeTag('term');
   }
 
   compileOperation() {
@@ -295,13 +293,13 @@ class CompilationEngine {
   }
 
   compileExpression() {
-    this.xmlWritter_old.openTag('expression');
+    this.xmlWriter_old.openTag('expression');
     this.compileTerm();
     while (this._includes(operations, this.tokenizer.symbol())) {
       this.compileOperation();
       this.compileTerm();
     }
-    this.xmlWritter_old.closeTag('expression');
+    this.xmlWriter_old.closeTag('expression');
   }
 
   compileExpressionList() {
@@ -321,11 +319,11 @@ class CompilationEngine {
     }
 
     this._compileSymbol('(');
-    this.xmlWritter_old.openTag('expressionList');
+    this.xmlWriter_old.openTag('expressionList');
     if (this.tokenizer.symbol() !== ')') {
       this.compileExpressionList();
     }
-    this.xmlWritter_old.closeTag('expressionList');
+    this.xmlWriter_old.closeTag('expressionList');
     this._compileSymbol(')');
   }
 
@@ -336,7 +334,7 @@ class CompilationEngine {
   }
 
   compileReturnStatement() {
-    this.xmlWritter_old.openTag('returnStatement');
+    this.xmlWriter_old.openTag('returnStatement');
 
     this._compileKeyword(JackTokenizer.KEYWORDS.RETURN);
     if (this.tokenizer.symbol() !== ';') {
@@ -344,21 +342,21 @@ class CompilationEngine {
     }
     this._compileSymbol(';');
 
-    this.xmlWritter_old.closeTag('returnStatement');
+    this.xmlWriter_old.closeTag('returnStatement');
   }
 
   compileDoStatement() {
-    this.xmlWritter_old.openTag('doStatement');
+    this.xmlWriter_old.openTag('doStatement');
 
     this._compileKeyword(JackTokenizer.KEYWORDS.DO);
     this.compileSubroutineCall();
     this._compileSymbol(';');
 
-    this.xmlWritter_old.closeTag('doStatement');
+    this.xmlWriter_old.closeTag('doStatement');
   }
 
   compileWhileStatement() {
-    this.xmlWritter_old.openTag('whileStatement');
+    this.xmlWriter_old.openTag('whileStatement');
 
     this._compileKeyword(JackTokenizer.KEYWORDS.WHILE);
 
@@ -370,11 +368,11 @@ class CompilationEngine {
 
     this._compileBody();
 
-    this.xmlWritter_old.closeTag('whileStatement');
+    this.xmlWriter_old.closeTag('whileStatement');
   }
 
   compileIfStatement() {
-    this.xmlWritter_old.openTag('ifStatement');
+    this.xmlWriter_old.openTag('ifStatement');
     this._compileKeyword(JackTokenizer.KEYWORDS.IF);
 
     this._compileSymbol('(');
@@ -389,11 +387,11 @@ class CompilationEngine {
       this._compileKeyword(JackTokenizer.KEYWORDS.ELSE);
       this._compileBody();
     }
-    this.xmlWritter_old.closeTag('ifStatement');
+    this.xmlWriter_old.closeTag('ifStatement');
   }
 
   compileLetStatement() {
-    this.xmlWritter_old.openTag('letStatement');
+    this.xmlWriter_old.openTag('letStatement');
     this._compileKeyword(JackTokenizer.KEYWORDS.LET);
     this._compileIdentifier();
 
@@ -409,11 +407,11 @@ class CompilationEngine {
 
     this._compileSymbol(';');
 
-    this.xmlWritter_old.closeTag('letStatement');
+    this.xmlWriter_old.closeTag('letStatement');
   }
 
   compileStatements() {
-    this.xmlWritter_old.openTag('statements');
+    this.xmlWriter_old.openTag('statements');
     while (this.tokenizer.symbol() !== '}') {
       this._expectKeyword(statementStarters);
       switch (this.tokenizer.keyword()) {
@@ -434,7 +432,7 @@ class CompilationEngine {
           break;
       }
     }
-    this.xmlWritter_old.closeTag('statements');
+    this.xmlWriter_old.closeTag('statements');
   }
 
   _compileParameter() {
@@ -443,7 +441,7 @@ class CompilationEngine {
   }
 
   compileParameterList() {
-    this.xmlWritter_old.openTag('parameterList');
+    this.xmlWriter_old.openTag('parameterList');
     if (this.tokenizer.symbol() !== ')') {
       this._compileParameter();
 
@@ -452,11 +450,11 @@ class CompilationEngine {
         this._compileParameter();
       }
     }
-    this.xmlWritter_old.closeTag('parameterList');
+    this.xmlWriter_old.closeTag('parameterList');
   }
 
   compileSubroutineBody() {
-    this.xmlWritter_old.openTag('subroutineBody');
+    this.xmlWriter_old.openTag('subroutineBody');
     this._compileSymbol('{');
 
     this._expectKeyword([...statementStarters, JackTokenizer.KEYWORDS.VAR]);
@@ -468,11 +466,11 @@ class CompilationEngine {
     this.compileStatements();
 
     this._compileSymbol('}');
-    this.xmlWritter_old.closeTag('subroutineBody');
+    this.xmlWriter_old.closeTag('subroutineBody');
   }
 
   compileSubroutine() {
-    this.xmlWritter_old.openTag('subroutineDec');
+    this.xmlWriter_old.openTag('subroutineDec');
     this._compileKeyword(subroutineStarters);
 
     if (this.tokenizer.keyword() === JackTokenizer.KEYWORDS.VOID) {
@@ -489,7 +487,7 @@ class CompilationEngine {
 
     this.compileSubroutineBody();
 
-    this.xmlWritter_old.closeTag('subroutineDec');
+    this.xmlWriter_old.closeTag('subroutineDec');
   }
 }
 

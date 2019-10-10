@@ -1,3 +1,5 @@
+const fs = require('fs');
+
 const arithmeticCommands = [
   'add',
   'sub',
@@ -21,16 +23,19 @@ const segments = [
 ];
 
 class VMWriter {
-  constructor(destWriter) {
-    this.writer = destWriter;
+  constructor(destPath) {
+    this.writer = fs.createWriteStream(destPath, { encoding: 'utf8' });
   }
 
   writePush(segment, index) {
+    if (!segments.includes(segment)) {
+      throw new Error('Unrecognized segment: ' + segment);
+    }
     this.writer.write(`push ${segment} ${index}`);
   }
 
   writePop(segment, index) {
-    if (!segment.includes(segment)) {
+    if (!segments.includes(segment)) {
       throw new Error('Unrecognized segment: ' + segment);
     }
     this.writer.write(`pop ${segment} ${index}`);

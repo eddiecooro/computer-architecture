@@ -27,10 +27,10 @@ if (isDir) {
 }
 
 function compile(path) {
-  const destinationFile = fs.createWriteStream(
-    path.replace(/\.jack/, '.debug.xml')
+  const compilation = new CompilationEngine(
+    path,
+    path.replace(/\.jack/, '.vm')
   );
-  const compilation = new CompilationEngine(path, destinationFile);
   compilation.compile();
   // const xmlWritter = new XMLWritter(destinationFile);
   // let i = 0;

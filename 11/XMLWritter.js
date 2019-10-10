@@ -1,6 +1,7 @@
+const fs = require('fs');
 class XMLWritter {
-  constructor(writter) {
-    this.writter = writter;
+  constructor(destPath) {
+    this.writer = fs.createWriteStream(destPath, { encoding: 'utf8' });
     this.openTags = [];
   }
 
@@ -15,13 +16,13 @@ class XMLWritter {
   writeTag(tagName, tagContents) {
     tagName = this._sanitize(tagName);
     tagContents = this._sanitize(tagContents);
-    this.writter.write(`<${tagName}> ${tagContents} </${tagName}>\n`);
+    this.writer.write(`<${tagName}> ${tagContents} </${tagName}>\n`);
   }
 
   openTag(tagName) {
     this.openTags.push(tagName);
     tagName = this._sanitize(tagName);
-    this.writter.write(`<${tagName}>\n`);
+    this.writer.write(`<${tagName}>\n`);
   }
 
   closeTag(tagName) {
@@ -30,7 +31,7 @@ class XMLWritter {
       !found && tag === tagName ? tags : [tag, ...tags]
     );
     tagName = this._sanitize(tagName);
-    this.writter.write(`</${tagName}>\n`);
+    this.writer.write(`</${tagName}>\n`);
   }
 
   closeAllOpenTags() {
