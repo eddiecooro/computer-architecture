@@ -24,56 +24,61 @@ const segments = [
 
 class VMWriter {
   constructor(destPath) {
-    this.writer = fs.createWriteStream(destPath, { encoding: 'utf8' });
+    this.destPath = destPath;
+    this.file = '';
+  }
+
+  replace(s, d) {
+    this.file.replace(s, d);
   }
 
   writePush(segment, index) {
     if (!segments.includes(segment)) {
       throw new Error('Unrecognized segment: ' + segment);
     }
-    this.writer.write(`push ${segment} ${index}`);
+    this.file += `push ${segment} ${index}\n`;
   }
 
   writePop(segment, index) {
     if (!segments.includes(segment)) {
       throw new Error('Unrecognized segment: ' + segment);
     }
-    this.writer.write(`pop ${segment} ${index}`);
+    this.file += `pop ${segment} ${index}\n`;
   }
 
   writeArithmetic(command) {
     if (!arithmeticCommands.includes(command)) {
       throw new Error('Unrecognized arithmetic command: ' + command);
     }
-    this.writer.write(command);
+    this.file += `${command}\n`;
   }
 
   writeLabel(labelName) {
-    this.writer.write(`label ${labelName}`);
+    this.file += `label ${labelName}\n`;
   }
 
   writeGoto(labelName) {
-    this.writer.write(`goto ${labelName}`);
+    this.file += `goto ${labelName}\n`;
   }
 
   writeIf(labelName) {
-    this.writer.write(`if-goto ${labelName}`);
+    this.file += `if-goto ${labelName}\n`;
   }
 
   writeCall(name, nArgs) {
-    this.writer.write(`call ${name} ${nArgs}`);
+    this.file += `call ${name} ${nArgs}\n`;
   }
 
   writeFunction(name, nLocals) {
-    this.writer.write(`function ${name} ${nLocals}`);
+    this.file += `function ${name} ${nLocals}\n`;
   }
 
   writeReturn() {
-    this.writer.write(`return`);
+    this.file += `return\n`;
   }
 
-  close() {
-    this.writer.close();
+  end() {
+    fs.writeFileSync(this.destPath, this.file, 'utf8');
   }
 }
 

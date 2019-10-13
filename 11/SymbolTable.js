@@ -4,15 +4,18 @@ class SymbolTable {
   }
 
   startSubroutine() {
-    this.symbols = Object.entries(this.symbols).reduce((newSymbols, [k, s]) =>
-      s.kind === SymbolTable.KINDS.FIELD || s.kind === SymbolTable.KINDS.STATIC
-        ? { ...newSymbols, [k]: s }
-        : newSymbols
+    this.symbols = Object.entries(this.symbols).reduce(
+      (newSymbols, [k, s]) =>
+        s.kind === SymbolTable.KINDS.FIELD ||
+        s.kind === SymbolTable.KINDS.STATIC
+          ? { ...newSymbols, [k]: s }
+          : newSymbols,
+      {}
     );
   }
 
   define(name, type, kind) {
-    const id = this.varCount(kind);
+    const id = this.count(kind);
     this.symbols[name] = {
       id,
       name,
@@ -21,8 +24,12 @@ class SymbolTable {
     };
   }
 
-  varCount(kind) {
+  count(kind) {
     return Object.values(this.symbols).filter(s => s.kind === kind).length;
+  }
+
+  has(name) {
+    return !!this.symbols[name];
   }
 
   kindOf(name) {

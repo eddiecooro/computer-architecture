@@ -27,8 +27,9 @@ class XMLWritter {
 
   closeTag(tagName) {
     let found = false;
-    this.openTags = this.openTags.reduceRight((tags, tag) =>
-      !found && tag === tagName ? tags : [tag, ...tags]
+    this.openTags = this.openTags.reduceRight(
+      (tags, tag) => (!found && tag === tagName ? tags : [tag, ...tags]),
+      []
     );
     tagName = this._sanitize(tagName);
     this.writer.write(`</${tagName}>\n`);

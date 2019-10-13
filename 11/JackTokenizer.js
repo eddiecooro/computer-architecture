@@ -1,6 +1,6 @@
 const fs = require('fs');
 
-const keywordRegex = /^(class|constructor|function|method|field|static|var|int|char|boolean|void|true|false|null|this|let|do|if|else|while|return)$/;
+const keywordRegex = /^(class|constructor|function|method|field|static|var|int|char|boolean|void|true|false|null|this|let|do|if|else|while|return)/;
 const symbolRegex = /^(\{|\}|\(|\)|\[|\]|\.|\,|\;|\+|\-|\*|\/|\&|\||\<|\>|\=|\~)$/;
 const stringRegex = /^\"(?<str>.*)\"$/;
 const integerRegex = /^\d+/;
@@ -89,14 +89,6 @@ class JackTokenizer {
         break tWhile;
       }
 
-      const keywordMatch = c.match(keywordRegex);
-      if (keywordMatch) {
-        this.foundToken(JackTokenizer.TOKENTYPES.KEYWORD, {
-          keyword: keywordMatch[0]
-        });
-        break tWhile;
-      }
-
       const strMatch = c.match(stringRegex);
       if (strMatch) {
         this.foundToken(JackTokenizer.TOKENTYPES.STRING_CONST, {
@@ -122,6 +114,20 @@ class JackTokenizer {
           const extraParsedLength = c.length - integerMatch[0].length;
           this.index = this.index - extraParsedLength;
           break tWhile;
+        }
+
+        const keywordMatch = beforeSpace.match(keywordRegex);
+        if (keywordMatch) {
+          const length = keywordMatch[0].length;
+          const rest = beforeSpace.slice(length);
+          if (!(rest && rest.match(identifierRegex))) {
+            this.foundToken(JackTokenizer.TOKENTYPES.KEYWORD, {
+              keyword: keywordMatch[0]
+            });
+            const extraParsedLength = c.length - keywordMatch[0].length;
+            this.index = this.index - extraParsedLength;
+            break tWhile;
+          }
         }
 
         const idMatch = beforeSpace.match(identifierRegex);

@@ -5,6 +5,7 @@
   "author": "Eddie-CooRo",
   "license": "MIT",
   "dependencies": {
-    "meow": "^5.0.0"
+    "meow": "^5.0.0",
+    "uuidv4": "^5.0.1"
   }
 }

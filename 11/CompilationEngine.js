@@ -1,6 +1,10 @@
+const uuid = require('uuidv4').default;
 const JackTokenizer = require('./JackTokenizer');
-const XMLWritter = require('./XMLWritter');
 const VMWriter = require('./VMWriter');
+const SymbolTable = require('./SymbolTable');
+
+const generateLabel = () => 'r' + uuid().replace(/\-/g, '_');
+const thisArg = '__FIRST_ARGUMENT_IS_RESERVED_FOR_THIS_KEYWORD__';
 
 const subroutineStarters = [
   JackTokenizer.KEYWORDS.FUNCTION,
@@ -30,8 +34,8 @@ const keywordConstants = [
 class CompilationEngine {
   constructor(sourceFilePath, destPath) {
     this.tokenizer = new JackTokenizer(sourceFilePath);
-    this.xmlWriter_old = new XMLWritter(destPath + '.xml');
     this.vmWriter = new VMWriter(destPath);
+    this.symbolTable = new SymbolTable();
   }
 
   _includes(expected, found) {
@@ -73,30 +77,19 @@ class CompilationEngine {
     }
   }
 
-  _writeCurrentToken() {
+  _getCurrentToken() {
     const tokenType = this.tokenizer.token();
     switch (tokenType) {
       case JackTokenizer.TOKENTYPES.IDENTIFIER:
-        this.xmlWriter_old.writeTag('identifier', this.tokenizer.identifier());
-        break;
+        return this.tokenizer.identifier();
       case JackTokenizer.TOKENTYPES.KEYWORD:
-        this.xmlWriter_old.writeTag(
-          'keyword',
-          this.tokenizer.keyword().toLowerCase()
-        );
-        break;
+        return this.tokenizer.keyword();
       case JackTokenizer.TOKENTYPES.SYMBOL:
-        this.xmlWriter_old.writeTag('symbol', this.tokenizer.symbol());
-        break;
+        return this.tokenizer.symbol();
       case JackTokenizer.TOKENTYPES.INT_CONST:
-        this.xmlWriter_old.writeTag('integerConstant', this.tokenizer.intVal());
-        break;
+        return this.tokenizer.intVal();
       case JackTokenizer.TOKENTYPES.STRING_CONST:
-        this.xmlWriter_old.writeTag(
-          'stringConstant',
-          this.tokenizer.stringVal()
-        );
-        break;
+        return this.tokenizer.stringVal();
     }
   }
 
@@ -135,34 +128,39 @@ class CompilationEngine {
     this._expectToken(JackTokenizer.TOKENTYPES.INT_CONST);
   }
 
-  _compileIdentifier() {
+  _extractIdentifier() {
     this._expectIdentifier();
-    this._writeCurrentToken();
+    const token = this._getCurrentToken();
     this.tokenizer.advance();
+    return { token, type: JackTokenizer.TOKENTYPES.IDENTIFIER };
   }
 
-  _compileIntegerConstant() {
+  _extractIntegerConstant() {
     this._expectIntegerConstant();
-    this._writeCurrentToken();
+    const token = this._getCurrentToken();
     this.tokenizer.advance();
+    return { token, type: JackTokenizer.TOKENTYPES.INT_CONST };
   }
 
-  _compileStringConstant() {
+  _extractStringConstant() {
     this._expectStringConstant();
-    this._writeCurrentToken();
+    const token = this._getCurrentToken();
     this.tokenizer.advance();
+    return { token, type: JackTokenizer.TOKENTYPES.STRING_CONST };
   }
 
-  _compileSymbol(symbol) {
+  _extractSymbol(symbol) {
     this._expectSymbol(symbol);
-    this._writeCurrentToken();
+    const token = this._getCurrentToken();
     this.tokenizer.advance();
+    return { token, type: JackTokenizer.TOKENTYPES.SYMBOL };
   }
 
-  _compileKeyword(keyword) {
+  _extractKeyword(keyword) {
     this._expectKeyword(keyword);
-    this._writeCurrentToken();
+    const token = this._getCurrentToken();
     this.tokenizer.advance();
+    return { token, type: JackTokenizer.TOKENTYPES.KEYWORD };
   }
 
   compile() {
@@ -185,233 +183,369 @@ class CompilationEngine {
   }
 
   compileClass() {
-    this.xmlWriter_old.openTag('class');
+    this._extractKeyword(JackTokenizer.KEYWORDS.CLASS);
 
-    this._compileKeyword(JackTokenizer.KEYWORDS.CLASS);
+    const { token: className } = this._extractIdentifier();
+    this.currentClassName = className;
 
-    this._compileIdentifier();
-
-    this._compileSymbol('{');
+    this._extractSymbol('{');
     this._compileClassBody();
-    this._compileSymbol('}');
+    this._extractSymbol('}');
 
-    this.xmlWriter_old.closeTag('class');
+    this.vmWriter.end();
   }
 
-  compileType() {
+  _extractType() {
     try {
-      this._compileKeyword([
+      return this._extractKeyword([
         JackTokenizer.KEYWORDS.INT,
         JackTokenizer.KEYWORDS.CHAR,
         JackTokenizer.KEYWORDS.BOOLEAN
       ]);
     } catch (e) {
-      this._compileIdentifier();
+      return this._extractIdentifier();
     }
   }
 
-  _compileVarName() {
-    this._compileIdentifier();
+  _extractVarName() {
+    return this._extractIdentifier();
   }
 
-  _compileVarNames() {
-    this._compileVarName();
+  _extractVarNames() {
+    let varNames = [this._extractVarName()];
 
     if (this.tokenizer.symbol() !== ';') {
-      this._compileSymbol(',');
-      this._compileVarNames();
+      this._extractSymbol(',');
+      varNames = [...varNames, ...this._extractVarNames()];
     }
+    return varNames;
   }
 
   compileVarDec() {
-    this.xmlWriter_old.openTag('varDec');
-    this._compileKeyword(JackTokenizer.KEYWORDS.VAR);
-    this.compileRestVarDec();
-    this.xmlWriter_old.closeTag('varDec');
-  }
+    this._extractKeyword(JackTokenizer.KEYWORDS.VAR);
+    const kind = SymbolTable.KINDS.VAR;
 
-  compileRestVarDec() {
-    this.compileType();
+    const { token: type } = this._extractType();
+    const names = this._extractVarNames().map(d => d.token);
+    this._extractSymbol(';');
 
-    this._compileVarNames();
-
-    this._compileSymbol(';');
+    names.forEach(name => this.symbolTable.define(name, type, kind));
   }
 
   compileClassVarDec() {
-    this.xmlWriter_old.openTag('classVarDec');
+    const { token: kindToken } = this._extractKeyword(classVarDecStarters);
+    const kind =
+      kindToken === JackTokenizer.KEYWORDS.FIELD
+        ? SymbolTable.KINDS.FIELD
+        : kindToken === JackTokenizer.KEYWORDS.STATIC
+        ? SymbolTable.KINDS.STATIC
+        : null;
 
-    this._compileKeyword(classVarDecStarters);
+    const { token: type } = this._extractType();
 
-    this.compileRestVarDec();
+    const varNames = this._extractVarNames().map(v => v.token);
 
-    this.xmlWriter_old.closeTag('classVarDec');
+    this._extractSymbol(';');
+
+    varNames.forEach(varName => {
+      this.symbolTable.define(varName, type, kind);
+    });
+  }
+
+  _getSegmentBySymbolKind(kind) {
+    switch (kind) {
+      case SymbolTable.KINDS.ARG:
+        return 'argument';
+      case SymbolTable.KINDS.STATIC:
+        return 'static';
+      case SymbolTable.KINDS.VAR:
+        return 'local';
+      case SymbolTable.KINDS.FIELD:
+        return 'this';
+      default:
+        throw new Error('Unknown symbol kind: ', +kind);
+    }
   }
 
   _compileTermIdentifier() {
     const { nextTokenDescriptor } = this.tokenizer.peekNext();
     if (nextTokenDescriptor.symbol === '[') {
-      this._compileIdentifier();
-      this._compileSymbol('[');
+      const { token: identifier } = this._extractIdentifier();
+      const kind = this.symbolTable.kindOf(identifier);
+      const index = this.symbolTable.indexOf(identifier);
+      const segment = this._getSegmentBySymbolKind(kind);
+
+      this._extractSymbol('[');
+      // After compiling the expression, index is in the stack
       this.compileExpression();
-      this._compileSymbol(']');
+      this._extractSymbol(']');
+
+      this.vmWriter.writePush(segment, index);
+      this.vmWriter.writeArithmetic('add');
+      this.vmWriter.writePop('pointer', 1);
+      this.vmWriter.writePush('that', 0);
     } else if (
       nextTokenDescriptor.symbol === '(' ||
       nextTokenDescriptor.symbol === '.'
     ) {
       this.compileSubroutineCall();
     } else {
-      this._compileIdentifier();
+      const { token: identifier } = this._extractIdentifier();
+      const kind = this.symbolTable.kindOf(identifier);
+      const index = this.symbolTable.indexOf(identifier);
+      const segment = this._getSegmentBySymbolKind(kind);
+      this.vmWriter.writePush(segment, index);
     }
   }
 
   compileTerm() {
-    this.xmlWriter_old.openTag('term');
     if (this.tokenizer.token() === JackTokenizer.TOKENTYPES.INT_CONST) {
-      this._compileIntegerConstant();
+      const d = this._extractIntegerConstant();
+      const constant = Number.parseInt(d.token);
+      this.vmWriter.writePush('constant', Math.abs(constant));
+      if (constant < 0) {
+        this.vmWriter.writeArithmetic('neg');
+      }
     } else if (
       this.tokenizer.token() === JackTokenizer.TOKENTYPES.STRING_CONST
     ) {
-      this._compileStringConstant();
+      // TODO
+      const { token: str = '' } = this._extractStringConstant();
+      this.vmWriter.writePush('constant', str.length);
+      this.vmWriter.writeCall('String.new', 1);
+      for (let ch of str) {
+        this.vmWriter.writePush('constant', ch.charCodeAt(0));
+        this.vmWriter.writeCall('String.appendChar', 2);
+      }
     } else if (this._includes(keywordConstants, this.tokenizer.keyword())) {
-      this._compileKeyword(keywordConstants);
+      const { token: constant } = this._extractKeyword(keywordConstants);
+      switch (constant) {
+        case JackTokenizer.KEYWORDS.TRUE:
+          // True is -1
+          this.vmWriter.writePush('constant', 1);
+          this.vmWriter.writeArithmetic('neg');
+          break;
+        case JackTokenizer.KEYWORDS.FALSE:
+        case JackTokenizer.KEYWORDS.NULL:
+          // False and Null are 0
+          this.vmWriter.writePush('constant', 0);
+          break;
+        case JackTokenizer.KEYWORDS.THIS:
+          this.vmWriter.writePush('pointer', 0);
+          break;
+      }
     } else if (this._includes(unaryOperations, this.tokenizer.symbol())) {
-      this._compileSymbol(unaryOperations);
+      const { token: operator } = this._extractSymbol(unaryOperations);
       this.compileTerm();
+      switch (operator) {
+        case '-':
+          this.vmWriter.writeArithmetic('neg');
+          break;
+        case '~':
+          this.vmWriter.writeArithmetic('not');
+          break;
+      }
     } else if (this.tokenizer.symbol() === '(') {
-      this._compileSymbol('(');
+      this._extractSymbol('(');
       this.compileExpression();
-      this._compileSymbol(')');
+      this._extractSymbol(')');
     } else if (this.tokenizer.token() === JackTokenizer.TOKENTYPES.IDENTIFIER) {
       this._compileTermIdentifier();
     }
-    this.xmlWriter_old.closeTag('term');
   }
 
-  compileOperation() {
-    this._compileSymbol();
+  _extractOperation() {
+    return this._extractSymbol();
   }
 
   compileExpression() {
-    this.xmlWriter_old.openTag('expression');
     this.compileTerm();
     while (this._includes(operations, this.tokenizer.symbol())) {
-      this.compileOperation();
+      const { token: operation } = this._extractOperation();
       this.compileTerm();
+
+      switch (operation) {
+        case '+':
+          this.vmWriter.writeArithmetic('add');
+          break;
+        case '-':
+          this.vmWriter.writeArithmetic('sub');
+          break;
+        case '*':
+          this.vmWriter.writeCall('Math.multiply', 2);
+          break;
+        case '/':
+          this.vmWriter.writeCall('Math.divide', 2);
+          break;
+        case '&':
+          this.vmWriter.writeArithmetic('and');
+          break;
+        case '|':
+          this.vmWriter.writeArithmetic('or');
+          break;
+        case '>':
+          this.vmWriter.writeArithmetic('gt');
+          break;
+        case '<':
+          this.vmWriter.writeArithmetic('lt');
+          break;
+        case '=':
+          this.vmWriter.writeArithmetic('eq');
+          break;
+      }
     }
-    this.xmlWriter_old.closeTag('expression');
   }
 
   compileExpressionList() {
+    let num = 1;
     this.compileExpression();
     while (this.tokenizer.symbol() === ',') {
-      this._compileSymbol(',');
+      num++;
+      this._extractSymbol(',');
       this.compileExpression();
     }
+    return num;
   }
 
   compileSubroutineCall() {
-    this._compileIdentifier();
+    let objName;
+    let className;
+    let { token: subroutineName } = this._extractIdentifier();
+    let argsNum = 0;
 
     if (this.tokenizer.symbol() === '.') {
-      this._compileSymbol('.');
-      this._compileIdentifier();
+      this._extractSymbol('.');
+      const d = this._extractIdentifier();
+      objName = subroutineName;
+      subroutineName = d.token;
+      if (this.symbolTable.has(objName)) {
+        className = this.symbolTable.typeOf(objName);
+        argsNum = 1;
+        // Setting the variable behind the dot as the first argument
+        const kind = this.symbolTable.kindOf(objName);
+        const index = this.symbolTable.indexOf(objName);
+        const segment = this._getSegmentBySymbolKind(kind);
+        this.vmWriter.writePush(segment, index);
+      } else {
+        className = objName;
+      }
+    } else {
+      className = this.currentClassName;
+      argsNum = 1;
+      this.vmWriter.writePush('pointer', 0);
     }
 
-    this._compileSymbol('(');
-    this.xmlWriter_old.openTag('expressionList');
+    this._extractSymbol('(');
     if (this.tokenizer.symbol() !== ')') {
-      this.compileExpressionList();
+      argsNum += this.compileExpressionList();
     }
-    this.xmlWriter_old.closeTag('expressionList');
-    this._compileSymbol(')');
+    this._extractSymbol(')');
+
+    this.vmWriter.writeCall(`${className}.${subroutineName}`, argsNum);
   }
 
   _compileBody() {
-    this._compileSymbol('{');
+    this._extractSymbol('{');
     this.compileStatements();
-    this._compileSymbol('}');
+    this._extractSymbol('}');
   }
 
   compileReturnStatement() {
-    this.xmlWriter_old.openTag('returnStatement');
-
-    this._compileKeyword(JackTokenizer.KEYWORDS.RETURN);
+    this._extractKeyword(JackTokenizer.KEYWORDS.RETURN);
     if (this.tokenizer.symbol() !== ';') {
       this.compileExpression();
     }
-    this._compileSymbol(';');
-
-    this.xmlWriter_old.closeTag('returnStatement');
+    this.vmWriter.writeGoto(this.endOfCurrentSubroutine);
+    this._extractSymbol(';');
   }
 
   compileDoStatement() {
-    this.xmlWriter_old.openTag('doStatement');
-
-    this._compileKeyword(JackTokenizer.KEYWORDS.DO);
+    this._extractKeyword(JackTokenizer.KEYWORDS.DO);
     this.compileSubroutineCall();
-    this._compileSymbol(';');
-
-    this.xmlWriter_old.closeTag('doStatement');
+    this._extractSymbol(';');
+    this.vmWriter.writePop('temp', 0);
   }
 
   compileWhileStatement() {
-    this.xmlWriter_old.openTag('whileStatement');
+    const startLabel = generateLabel();
+    const endLabel = generateLabel();
+    this._extractKeyword(JackTokenizer.KEYWORDS.WHILE);
 
-    this._compileKeyword(JackTokenizer.KEYWORDS.WHILE);
+    this.vmWriter.writeLabel(startLabel);
 
-    this._compileSymbol('(');
-    if (this.tokenizer.symbol() !== ')') {
-      this.compileExpression();
-    }
-    this._compileSymbol(')');
+    this._extractSymbol('(');
+    this.compileExpression();
+    this._extractSymbol(')');
+
+    this.vmWriter.writeArithmetic('not');
+    this.vmWriter.writeIf(endLabel);
 
     this._compileBody();
-
-    this.xmlWriter_old.closeTag('whileStatement');
+    this.vmWriter.writeGoto(startLabel);
+    this.vmWriter.writeLabel(endLabel);
   }
 
   compileIfStatement() {
-    this.xmlWriter_old.openTag('ifStatement');
-    this._compileKeyword(JackTokenizer.KEYWORDS.IF);
+    this._extractKeyword(JackTokenizer.KEYWORDS.IF);
 
-    this._compileSymbol('(');
-    if (this.tokenizer.symbol() !== ')') {
-      this.compileExpression();
-    }
-    this._compileSymbol(')');
+    const ifLabel = generateLabel();
+    const endLabel = generateLabel();
 
+    this._extractSymbol('(');
+    this.compileExpression();
+    this._extractSymbol(')');
+
+    this.vmWriter.writeArithmetic('not');
+    this.vmWriter.writeIf(ifLabel);
     this._compileBody();
+    this.vmWriter.writeGoto(endLabel);
+    this.vmWriter.writeLabel(ifLabel);
 
     if (this.tokenizer.keyword() === JackTokenizer.KEYWORDS.ELSE) {
-      this._compileKeyword(JackTokenizer.KEYWORDS.ELSE);
+      this._extractKeyword(JackTokenizer.KEYWORDS.ELSE);
       this._compileBody();
     }
-    this.xmlWriter_old.closeTag('ifStatement');
+    this.vmWriter.writeLabel(endLabel);
   }
 
   compileLetStatement() {
-    this.xmlWriter_old.openTag('letStatement');
-    this._compileKeyword(JackTokenizer.KEYWORDS.LET);
-    this._compileIdentifier();
+    this._extractKeyword(JackTokenizer.KEYWORDS.LET);
+    const { token: identifier } = this._extractIdentifier();
+
+    const kind = this.symbolTable.kindOf(identifier);
+    let segment = this._getSegmentBySymbolKind(kind);
+    let index = this.symbolTable.indexOf(identifier);
+    let isArray = false;
 
     if (this.tokenizer.symbol() === '[') {
-      this._compileSymbol('[');
+      isArray = true;
+
+      this._extractSymbol('[');
       this.compileExpression();
-      this._compileSymbol(']');
+      this._extractSymbol(']');
+
+      this.vmWriter.writePush(segment, index);
+      this.vmWriter.writeArithmetic('add');
+      this.vmWriter.writePop('temp', 2);
+      segment = 'that';
+      index = 0;
     }
 
-    this._compileSymbol('=');
+    this._extractSymbol('=');
 
     this.compileExpression();
 
-    this._compileSymbol(';');
+    this._extractSymbol(';');
 
-    this.xmlWriter_old.closeTag('letStatement');
+    // The result of the expression is now in the stack
+    if (isArray) {
+      this.vmWriter.writePush('temp', 2);
+      this.vmWriter.writePop('pointer', 1);
+    }
+    this.vmWriter.writePop(segment, index);
   }
 
   compileStatements() {
-    this.xmlWriter_old.openTag('statements');
     while (this.tokenizer.symbol() !== '}') {
       this._expectKeyword(statementStarters);
       switch (this.tokenizer.keyword()) {
@@ -432,62 +566,96 @@ class CompilationEngine {
           break;
       }
     }
-    this.xmlWriter_old.closeTag('statements');
   }
 
   _compileParameter() {
-    this.compileType();
-    this._compileIdentifier();
+    const { token: type } = this._extractType();
+    const { token: name } = this._extractIdentifier();
+    this.symbolTable.define(name, type, SymbolTable.KINDS.ARG);
   }
 
   compileParameterList() {
-    this.xmlWriter_old.openTag('parameterList');
     if (this.tokenizer.symbol() !== ')') {
       this._compileParameter();
 
       while (this.tokenizer.symbol() !== ')') {
-        this._compileSymbol(',');
+        this._extractSymbol(',');
         this._compileParameter();
       }
     }
-    this.xmlWriter_old.closeTag('parameterList');
   }
 
-  compileSubroutineBody() {
-    this.xmlWriter_old.openTag('subroutineBody');
-    this._compileSymbol('{');
-
-    this._expectKeyword([...statementStarters, JackTokenizer.KEYWORDS.VAR]);
-
+  compileSubroutineVars() {
     while (this.tokenizer.keyword() === JackTokenizer.KEYWORDS.VAR) {
       this.compileVarDec();
     }
+  }
 
+  compileSubroutineBody() {
+    this._expectKeyword(statementStarters);
     this.compileStatements();
-
-    this._compileSymbol('}');
-    this.xmlWriter_old.closeTag('subroutineBody');
   }
 
   compileSubroutine() {
-    this.xmlWriter_old.openTag('subroutineDec');
-    this._compileKeyword(subroutineStarters);
+    this.symbolTable.startSubroutine();
+    this.endOfCurrentSubroutine = generateLabel();
 
+    const { token: subroutineType } = this._extractKeyword(subroutineStarters);
+
+    let returnType;
     if (this.tokenizer.keyword() === JackTokenizer.KEYWORDS.VOID) {
-      this._compileKeyword(JackTokenizer.KEYWORDS.VOID);
+      const d = this._extractKeyword(JackTokenizer.KEYWORDS.VOID);
+      returnType = d.token;
     } else {
-      this.compileType();
+      const d = this._extractType();
+      returnType = d.token;
     }
 
-    this._compileIdentifier();
+    const { token: subroutineName } = this._extractIdentifier();
 
-    this._compileSymbol('(');
+    if (subroutineType === JackTokenizer.KEYWORDS.METHOD) {
+      this.symbolTable.define(
+        thisArg,
+        this.currentClassName,
+        SymbolTable.KINDS.ARG
+      );
+    }
+
+    this._extractSymbol('(');
     this.compileParameterList();
-    this._compileSymbol(')');
+    this._extractSymbol(')');
+
+    this._extractSymbol('{');
+    this.compileSubroutineVars();
+
+    const localArgsCount = this.symbolTable.count(SymbolTable.KINDS.VAR);
+    this.vmWriter.writeFunction(
+      `${this.currentClassName}.${subroutineName}`,
+      localArgsCount
+    );
+
+    if (subroutineType === JackTokenizer.KEYWORDS.METHOD) {
+      // Set the `this` symbol to the value of the first argument
+      this.vmWriter.writePush('argument', 0);
+      this.vmWriter.writePop('pointer', 0);
+    } else if (subroutineType === JackTokenizer.KEYWORDS.CONSTRUCTOR) {
+      // Allocate a new space for `this`
+      const fieldsCount = this.symbolTable.count(SymbolTable.KINDS.FIELD);
+      this.vmWriter.writePush('constant', fieldsCount);
+      this.vmWriter.writeCall('Memory.alloc', 1);
+      this.vmWriter.writePop('pointer', 0);
+    } else if (subroutineType === 'function') {
+      // Nothing is needed
+    }
 
     this.compileSubroutineBody();
+    this._extractSymbol('}');
 
-    this.xmlWriter_old.closeTag('subroutineDec');
+    this.vmWriter.writeLabel(this.endOfCurrentSubroutine);
+    if (returnType === JackTokenizer.KEYWORDS.VOID) {
+      this.vmWriter.writePush('constant', 0);
+    }
+    this.vmWriter.writeReturn();
   }
 }
 
