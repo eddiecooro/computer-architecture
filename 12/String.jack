@@ -22,6 +22,19 @@ class String {
         return this;
     }
 
+    function String copy(String from, String to) {
+        var int i, l;
+
+        do to.erase();
+
+        let i = 0;
+        let l = from.length();
+        while(i < l) {
+            do to.appendChar(from.charAt(i));
+            let i = i + 1;
+        }
+    }
+
     /** Disposes this string. */
     method void dispose() {
         do s.dispose();
@@ -54,8 +67,10 @@ class String {
 
     /** Erases the last character from this string. */
     method void eraseLastChar() {
-        let s[length - 1] = null;
-        let length = length - 1;
+        if(length > 0) {
+            let s[length - 1] = null;
+            let length = length - 1;
+        }
         return;
     }
 
@@ -70,14 +85,31 @@ class String {
      *  until a non-digit character is detected. */
     method int intValue() {
         var int v, l, i, d;
+        var boolean end, negative;
 
         let v = 0;
         let l = length();
-        let i = 1;
-        while(i <= l) {
+        let end = false;
+        // charCodeOf "-" equals to 45
+        let negative = (s[0] = 45);
+
+        if(negative) {
+            let i = 1;
+        } else {
+            let i = 0;
+        }
+
+        while ((i < l) & (~end)) {
+            if((s[i] < 48) | (s[i] > 57)) {
+                let end = true;
+            } else {
+                let d = s[i] - 48;
+                let v = (v * 10) + d;
+            }
             let i = i + 1;
-            let d = s[i] - 48;
-            let v = (v * 10) + d;
+        }
+        if (negative) {
+            let v = (-1 * v);
         }
         return v;
     }
