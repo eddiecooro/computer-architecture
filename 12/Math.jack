@@ -8,13 +8,47 @@
  * Note: Jack compilers implement multiplication and division using OS method calls.
  */
 class Math {
+    static Array twoToThe;
 
     /** Initializes the library. */
     function void init() {
+        let twoToThe = Array.new(16);
+        let twoToThe[0] = 1;
+        let twoToThe[1] = 2;
+        let twoToThe[2] = 4;
+        let twoToThe[3] = 8;
+        let twoToThe[4] = 16;
+        let twoToThe[5] = 32;
+        let twoToThe[6] = 64;
+        let twoToThe[7] = 128;
+        let twoToThe[8] = 256;
+        let twoToThe[9] = 512;
+        let twoToThe[10] = 1024;
+        let twoToThe[11] = 2048;
+        let twoToThe[12] = 4096;
+        let twoToThe[13] = 8192;
+        let twoToThe[14] = 16384;
     }
 
     /** Returns the absolute value of x. */
     function int abs(int x) {
+        if(x > 0) {
+            return x;
+        } else {
+            return -x;
+        }
+    }
+
+    function boolean bit(int x, int j) {
+        var int masked;
+
+        let masked = (x & twoToThe[j]);
+
+        if(masked = 0) {
+            return false;
+        } else {
+            return true;
+        }
     }
 
     /** Returns the product of x and y. 
@@ -23,6 +57,33 @@ class Math {
      *  the Jack expressions x*y and multiply(x,y) return the same value.
      */
     function int multiply(int x, int y) {
+        var int sum, shiftedX, j;
+        var boolean negative;
+
+        let negative = false;
+        if(x < 0) {
+            let negative = ~negative;
+            let x = Math.abs(x);
+        }
+        if(y < 0) {
+            let negative = ~negative;
+            let y = Math.abs(y);
+        }
+
+        let shiftedX = x;
+        let j = 0;
+        while(j < 15) {
+            if(Math.bit(y, j)) {
+                let sum = sum + shiftedX;
+            }
+            let shiftedX = shiftedX + shiftedX;
+            let j = j + 1;
+        }
+        if(negative) {
+            return -sum;
+        } else {
+            return sum;
+        }
     }
 
     /** Returns the integer part of x/y.
@@ -31,17 +92,73 @@ class Math {
      *  the Jack expressions x/y and divide(x,y) return the same value.
      */
     function int divide(int x, int y) {
+        var int q, temp, result;
+        var boolean negative;
+
+        let negative = false;
+        if(x < 0) {
+            let negative = ~negative;
+            let x = Math.abs(x);
+        }
+        if(y < 0) {
+            let negative = ~negative;
+            let y = Math.abs(y);
+        }
+
+        if(x < y) {
+            return 0;
+        }
+
+
+
+        let q = Math.divide(x, y + y);
+        let temp = Math.multiply(q, y);
+        if((x - (temp + temp)) < y)  {
+            let result = q + q;
+        } else {
+            let result = (q + q) + 1;
+        }
+
+        if(negative) {
+            return -result;
+        } else {
+            return result;
+        }
     }
 
     /** Returns the integer part of the square root of x. */
     function int sqrt(int x) {
+        var int y, j, temp, tempPow;
+
+        let y = 0;
+        let j = 7;
+        while(~(j < 0)) {
+            let temp = y + twoToThe[j];
+            let tempPow = Math.multiply(temp, temp);
+            if(~(tempPow > x) & ~(tempPow < 0)) {
+                let y = temp;
+            }
+            let j = j - 1;
+        }
+        return y;
     }
 
     /** Returns the greater number. */
     function int max(int a, int b) {
+        if(a < b) {
+            return b;
+        } else {
+            return a;
+        }
     }
 
     /** Returns the smaller number. */
     function int min(int a, int b) {
+        if(a < b) {
+            return a;
+        } else {
+            return b;
+        }
     }
 }
+
