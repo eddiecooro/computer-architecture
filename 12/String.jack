@@ -11,54 +11,117 @@
  * string-oriented operations.
  */
 class String {
+    field Array s;
+    field int length;
 
     /** constructs a new empty string with a maximum length of maxLength
      *  and initial length of 0. */
     constructor String new(int maxLength) {
+        let s = Array.new(maxLength);
+        let length = 0;
+        return this;
     }
 
     /** Disposes this string. */
     method void dispose() {
+        do s.dispose();
+        do Memory.deAlloc(this);
+        return;
     }
 
     /** Returns the current length of this string. */
     method int length() {
+        return length;
     }
 
     /** Returns the character at the j-th location of this string. */
     method char charAt(int j) {
+        return s[j];
     }
 
     /** Sets the character at the j-th location of this string to c. */
     method void setCharAt(int j, char c) {
+        let s[j] = c;
+        return;
     }
 
     /** Appends c to this string's end and returns this string. */
     method String appendChar(char c) {
+        let s[length] = c;
+        let length = length + 1;
+        return this;
     }
 
     /** Erases the last character from this string. */
     method void eraseLastChar() {
+        let s[length - 1] = null;
+        let length = length - 1;
+        return;
+    }
+
+    method void erase() {
+        while(length > 0) {
+            do eraseLastChar();
+        }
+        return;
     }
 
     /** Returns the integer value of this string, 
      *  until a non-digit character is detected. */
     method int intValue() {
+        var int v, l, i, d;
+
+        let v = 0;
+        let l = length();
+        let i = 1;
+        while(i <= l) {
+            let i = i + 1;
+            let d = s[i] - 48;
+            let v = (v * 10) + d;
+        }
+        return v;
     }
 
     /** Sets this string to hold a representation of the given value. */
     method void setInt(int val) {
-    }
+        var int divide;
+        var int lastDigit;
+        var char c;
+        var boolean run;
+
+        do erase();
+
+        let run = true;
+        while(run) {
+            // lastDigit = val % 10
+            let divide = Math.divide(val, 10);
+            let lastDigit = val - divide;
+
+            if(val < 10) {
+                let run = false;
+            }
+
+            // Convert lastDigit to ASCII code
+            let c = 48 + lastDigit;
+            let val = divide;
+            do appendChar(c);
+        }
+        return;
+   }
 
     /** Returns the new line character. */
     function char newLine() {
+        return 128;
     }
 
     /** Returns the backspace character. */
     function char backSpace() {
+        return 129;
     }
 
     /** Returns the double quote (") character. */
     function char doubleQuote() {
+        return 34;
     }
 }
+
