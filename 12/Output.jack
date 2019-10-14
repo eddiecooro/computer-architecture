@@ -18,9 +18,16 @@ class Output {
 
     // Character map for displaying characters
     static Array charMaps; 
+    static int screen;
+    static int cursorRow; // 0 <= row <= 22
+    static int cursorColumn; // 0 <= column <= 63
 
     /** Initializes the screen, and locates the cursor at the screen's top-left. */
     function void init() {
+        do Output.initMap();
+        let cursorRow = 0;
+        let cursorColumn = 0;
+        let screen = 16384;
     }
 
     // Initializes the character map array
@@ -62,7 +69,7 @@ class Output {
         do Output.create(55,63,49,48,48,24,12,12,12,12,0,0); // 7
         do Output.create(56,30,51,51,51,30,51,51,51,30,0,0); // 8
         do Output.create(57,30,51,51,51,62,48,48,24,14,0,0); // 9
-        
+
         do Output.create(58,0,0,12,12,0,0,12,12,0,0,0);      // :
         do Output.create(59,0,0,12,12,0,0,12,12,6,0,0);      // ;
         do Output.create(60,0,0,24,12,6,3,6,12,24,0,0);      // <
@@ -71,7 +78,7 @@ class Output {
         do Output.create(64,30,51,51,59,59,59,27,3,30,0,0);  // @
         do Output.create(63,30,51,51,24,12,12,0,12,12,0,0);  // ?
 
-        do Output.create(65,0,0,0,0,0,0,0,0,0,0,0);          // A ** TO BE FILLED **
+        do Output.create(65,12,30,51,51,63,51,51,51,51,0,0);          // A ** TO BE FILLED **
         do Output.create(66,31,51,51,51,31,51,51,51,31,0,0); // B
         do Output.create(67,28,54,35,3,3,3,35,54,28,0,0);    // C
         do Output.create(68,15,27,51,51,51,51,51,27,15,0,0); // D
@@ -143,9 +150,9 @@ class Output {
     // Creates the character map array of the given character index, using the given values.
     function void create(int index, int a, int b, int c, int d, int e,
                          int f, int g, int h, int i, int j, int k) {
-	var Array map;
+	    var Array map;
 
-	let map = Array.new(11);
+	    let map = Array.new(11);
         let charMaps[index] = map;
 
         let map[0] = a;
@@ -176,28 +183,120 @@ class Output {
     /** Moves the cursor to the j-th column of the i-th row,
      *  and erases the character displayed there. */
     function void moveCursor(int i, int j) {
+        let cursorRow = i;
+        let cursorColumn = j;
+        do Output._printChar(32);
+    }
+
+    function void moveForward() {
+        let cursorColumn = cursorColumn + 1;
+        if(cursorColumn > 63) {
+            do Output.println();
+        }
+    }
+
+    function void printPart(int memoryAddr, int half, Array part1, Array part2) {
+        var int memoryValue;
+
+        let memoryValue = Memory.peek(memoryAddr);
+        if(half = 1) {
+            // 255 = 0b0000000011111111
+            let memoryValue = memoryValue & 255;
+            let memoryValue = memoryValue | (part1 * 256);
+        } else {
+            if(half = -1) {
+                // -256 = 0b1111111100000000
+                let memoryValue = memoryValue & -256;
+                let memoryValue = memoryValue | part1;
+            } else {
+                let memoryValue = (part1 * 256) | (part2);
+            }
+        }
+        do Memory.poke(memoryAddr, memoryValue);
+    }
+
+    function void _printChar(char c) {
+        var int memoryAddr, intColumn, remainder, memoryValue, index;
+        var Array ch;
+
+        let intColumn = Math.divide(cursorColumn, 2);
+        let remainder = cursorColumn - (intColumn * 2);
+        let memoryAddr = screen;
+        // 352 = 11 * 32
+        let memoryAddr = memoryAddr + (cursorRow * (352));
+        let memoryAddr = memoryAddr + intColumn;
+
+        let memoryValue = Memory.peek(memoryAddr);
+
+        let ch = Output.getMap(c);
+        let index = 0;
+
+        while(index < 11) {
+            if(~(remainder = 0)) {
+                do Output.printPart(memoryAddr + (32 * index), 1, ch[index]);
+            } else {
+                do Output.printPart(memoryAddr + (32 * index), -1, ch[index]);
+            }
+            let index = index + 1;
+        }
+        return;
     }
 
     /** Displays the given character at the cursor location,
      *  and advances the cursor one column forward. */
     function void printChar(char c) {
+        do Output._printChar(c);
+        do Output.moveForward();
     }
 
     /** displays the given string starting at the cursor location,
      *  and advances the cursor appropriately. */
     function void printString(String s) {
+        var int i, l;
+        var char c;
+
+        let i = 0;
+        let l = s.length();
+        while(i < l) {
+            let c = s.charAt(i);
+            do Output.printChar(c);
+            let i = i + 1;
+        }
     }
 
     /** Displays the given integer starting at the cursor location,
      *  and advances the cursor appropriately. */
     function void printInt(int i) {
+        var String s;
+
+        let s = String.new(6);
+        do s.setInt(i);
+        do Output.printString(s);
     }
 
     /** Advances the cursor to the beginning of the next line. */
     function void println() {
+        let cursorColumn = 0;
+        let cursorRow = cursorRow + 1;
+        if(cursorRow > 22) {
+            let cursorRow = 0;
+        }
     }
 
     /** Moves the cursor one column back. */
     function void backSpace() {
+        var int newColumn, newRow;
+        let newColumn = cursorColumn - 1;
+        let newRow = cursorRow;
+        if(newColumn < 0) {
+            let newColumn = 63;
+            let newRow = cursorRow - 1;
+            if(newRow < 0) {
+                let newColumn = 0;
+                let newRow = 0;
+            }
+        }
+        do Output.moveCursor(newRow, newColumn);
     }
 }
+

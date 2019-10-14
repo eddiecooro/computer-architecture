@@ -121,6 +121,11 @@ class String {
         var char c;
         var boolean run;
 
+        if(val < 0) {
+            // 45 = "-"
+            do appendChar(45)
+        }
+
         do erase();
 
         let run = true;
