@@ -9,26 +9,76 @@
  * consists of 32,768 words, each holding a 16-bit binary number.
  */ 
 class Memory {
+    static int start;
 
     /** Initializes the class. */
     function void init() {
+        let start = 2048;
+        let start[0] = 14336;
     }
 
     /** Returns the RAM value at the given address. */
     function int peek(int address) {
+        var Array a;
+        let a = 0;
+        return a[address];
     }
 
     /** Sets the RAM value at the given address to the given value. */
     function void poke(int address, int value) {
+        var Array a;
+        let a = 0;
+        let a[address] = value;
+        return;
     }
 
     /** Finds an available RAM block of the given size and returns
      *  a reference to its base address. */
     function int alloc(int size) {
+        var int pointer, prev, available, next, remain;
+
+        let pointer = start;
+        let prev = null;
+        while(~(pointer[0] > size)) {
+            let prev = pointer;
+            let pointer = pointer[1];
+        }
+        let available = pointer[0];
+        let next = pointer[1];
+        let remain = available - (size + 1);
+        
+        if(remain > 1) {
+            let pointer[size + 1] = remain;
+            if(~(next = 0)) {
+                let pointer[size + 2] = next;
+            }
+            if(pointer = start) {
+                let start = pointer + size + 1;
+            }
+        } else {
+            if(~(next = 0) & prev) {
+                let prev[1] = next;
+            }
+            if(pointer = start) {
+                let start = next;
+            }
+        }
+
+        let pointer[0] = size;
+        return pointer + 1;
     }
 
     /** De-allocates the given object (cast as an array) by making
      *  it available for future allocations. */
     function void deAlloc(Array o) {
+        var int pointer, next, size;
+
+        let pointer = o - 1;
+        let next = start;
+        let size = pointer[0] + 1;
+        let pointer[0] = size;
+        let pointer[1] = next;
+        let start = pointer;
     }    
 }
+
