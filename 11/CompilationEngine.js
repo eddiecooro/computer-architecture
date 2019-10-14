@@ -648,7 +648,9 @@ class CompilationEngine {
       // Nothing is needed
     }
 
-    this.compileSubroutineBody();
+    if (this.tokenizer.symbol() !== '}') {
+      this.compileSubroutineBody();
+    }
     this._extractSymbol('}');
 
     this.vmWriter.writeLabel(this.endOfCurrentSubroutine);

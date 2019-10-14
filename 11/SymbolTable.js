@@ -3,6 +3,14 @@ class SymbolTable {
     this.symbols = {};
   }
 
+  safeGet(name) {
+    let symbol = this.symbols[name];
+    if (!symbol) {
+      throw new Error('Symbol with name: ' + name + ' is not defined.');
+    }
+    return symbol;
+  }
+
   startSubroutine() {
     this.symbols = Object.entries(this.symbols).reduce(
       (newSymbols, [k, s]) =>
@@ -33,15 +41,15 @@ class SymbolTable {
   }
 
   kindOf(name) {
-    return this.symbols[name].kind;
+    return this.safeGet(name).kind;
   }
 
   typeOf(name) {
-    return this.symbols[name].type;
+    return this.safeGet(name).type;
   }
 
   indexOf(name) {
-    return this.symbols[name].id;
+    return this.safeGet(name).id;
   }
 }
 
